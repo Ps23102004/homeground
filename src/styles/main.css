@@ -1,0 +1,601 @@
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+/* ============================================================================
+   Homeground — UI shell
+   Direction: a topographic survey sheet at dusk. The page is an elevation
+   raster you are about to ride. One bold move (the live contour field);
+   everything else stays quiet.
+   ========================================================================= */
+
+:root {
+  /* ground */
+  --bg:        #0b0e13;
+  --bg-lift:   #121821;
+  --line:      #1d2734;
+  --line-soft: #161e28;
+
+  /* ink */
+  --fg:        #e9ecf1;
+  --fg-dim:    #8b95a4;
+  --fg-faint:  #5a6472;
+
+  /* the warm light in the world — sodium vapour on wet asphalt */
+  --accent:      #ff9d4a;
+  --accent-soft: rgba(255, 157, 74, 0.14);
+  --danger:      #e4675c;
+
+  /* type scale */
+  --t-display: clamp(2.6rem, 7.2vw, 4.75rem);
+  --t-title:   clamp(1.35rem, 2.6vw, 1.75rem);
+  --t-lead:    clamp(1rem, 1.35vw, 1.1875rem);
+  --t-body:    0.9375rem;
+  --t-label:   0.75rem;
+  --t-micro:   0.6875rem;
+
+  /* rhythm */
+  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+  --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px;
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --sans: "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+}
+
+body { overflow: hidden; }
+
+#app { position: fixed; inset: 0; }
+
+/* the 3D canvas that world/ mounts sits underneath everything here */
+#app > canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* --------------------------------------------------------------------------
+   shell
+   ----------------------------------------------------------------------- */
+
+.hg {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  pointer-events: none;
+}
+
+.hg-contours {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  opacity: 1;
+  transition: opacity 900ms var(--ease);
+}
+
+/* a soft vignette so the centre column always reads */
+.hg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(74% 58% at 34% 46%, rgba(11, 14, 19, 0.86) 0%, rgba(11, 14, 19, 0.5) 44%, rgba(11, 14, 19, 0) 76%),
+    linear-gradient(to bottom, rgba(11, 14, 19, 0.55) 0%, rgba(11, 14, 19, 0) 22%, rgba(11, 14, 19, 0) 78%, rgba(11, 14, 19, 0.6) 100%);
+  opacity: 1;
+  transition: opacity 700ms var(--ease);
+}
+
+.hg[data-view="game"]::before { opacity: 0; }
+
+/* --------------------------------------------------------------------------
+   persistent chrome
+   ----------------------------------------------------------------------- */
+
+.hg-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s4);
+  padding: var(--s5) var(--s5) 0;
+  padding-top: max(var(--s5), env(safe-area-inset-top));
+}
+
+.hg-mark {
+  pointer-events: auto;
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: var(--s1) 0;
+  margin: 0;
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  font-weight: 500;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+  cursor: default;
+  transition: color 200ms var(--ease);
+}
+
+/* over a bright daylit world the chrome needs its own contrast, not a scrim */
+.hg[data-view="game"] .hg-mark,
+.hg[data-view="game"] .hg-place-name,
+.hg[data-view="game"] .hg-speed { text-shadow: 0 1px 14px rgba(0, 0, 0, 0.8), 0 0 3px rgba(0, 0, 0, 0.7); }
+
+.hg[data-view="game"] .hg-mark { cursor: pointer; color: rgba(255, 255, 255, 0.72); }
+.hg[data-view="game"] .hg-mark:hover { color: #fff; }
+.hg[data-view="game"] .hg-place-name { color: rgba(255, 255, 255, 0.82); }
+
+.hg-place {
+  display: none;
+  min-width: 0;
+  text-align: right;
+  flex: 0 1 auto;
+}
+
+.hg[data-view="game"] .hg-place { display: block; animation: hg-rise 760ms var(--ease) 1600ms both; }
+
+.hg-place-name {
+  display: block;
+  max-width: 46vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--t-body);
+  color: var(--fg-dim);
+  margin-bottom: var(--s2);
+}
+
+/* --------------------------------------------------------------------------
+   centre stage
+   ----------------------------------------------------------------------- */
+
+.hg-stage {
+  display: grid;
+  grid-template-areas: "panel";
+  place-items: center;
+  padding: var(--s6) var(--s5);
+  min-height: 0;
+}
+
+/* All three panels share one grid cell so a swap can CROSS-fade. With
+   display:none the outgoing panel vanished on the same frame the incoming one
+   started, which is a hard cut no amount of entrance easing can hide.
+
+   Both directions are ANIMATIONS, never transitions. A transition that starts
+   while the tab is in the background never advances, and the panel then sits
+   at opacity 0 forever — measured, not theorised: a landing panel stuck
+   invisible for as long as the tab stayed hidden. An animation with
+   `fill-mode: both` always lands on its end state. */
+.hg-panel {
+  grid-area: panel;
+  width: 100%;
+  max-width: 640px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.hg-panel[data-leaving="1"] {
+  visibility: visible;
+  animation: hg-fall 380ms var(--ease) both;
+}
+
+.hg-panel[data-on="1"] {
+  visibility: visible;
+  pointer-events: auto;
+  animation: hg-rise 620ms var(--ease) 140ms both;
+}
+
+@keyframes hg-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes hg-fall {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(-10px); }
+}
+
+/* The reveal veil. The world is already rendering behind this — it fades off
+   the front of the drone shot so the first thing you see is the neighbourhood
+   resolving out of the same dark the loading page was on, not a cut. */
+.hg::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: var(--bg);
+  opacity: 0;
+}
+
+.hg[data-view="game"]::after { animation: hg-veil 1500ms var(--ease) both; }
+
+@keyframes hg-veil {
+  0%   { opacity: 1; }
+  42%  { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+.hg[data-view="game"] .hg-stage { pointer-events: none; }
+
+/* --------------------------------------------------------------------------
+   landing
+   ----------------------------------------------------------------------- */
+
+.hg-display {
+  margin: 0 0 var(--s5);
+  font-size: var(--t-display);
+  font-weight: 600;
+  font-stretch: 118%;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+}
+
+.hg-display em {
+  font-style: normal;
+  color: var(--accent);
+}
+
+.hg-lead {
+  margin: 0 0 var(--s7);
+  max-width: 33em;
+  font-size: var(--t-lead);
+  line-height: 1.55;
+  color: var(--fg-dim);
+  text-wrap: pretty;
+}
+
+.hg-field {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: var(--s3);
+  transition: border-color 260ms var(--ease);
+}
+
+.hg-field:focus-within { border-bottom-color: var(--accent); }
+
+.hg-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  appearance: none;
+  border: 0;
+  outline: 0;
+  background: none;
+  padding: var(--s2) 0;
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: clamp(1.0625rem, 2.1vw, 1.375rem);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.hg-input::placeholder { color: var(--fg-faint); }
+
+.hg-go {
+  flex: none;
+  appearance: none;
+  cursor: pointer;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: none;
+  color: var(--fg-dim);
+  display: grid;
+  place-items: center;
+  transition: border-color 220ms var(--ease), color 220ms var(--ease), background 220ms var(--ease), transform 220ms var(--ease);
+}
+
+.hg-go svg { width: 15px; height: 15px; }
+.hg-go:hover { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+.hg-go:active { transform: scale(0.94); }
+.hg-go:disabled { opacity: 0.35; cursor: default; background: none; color: var(--fg-dim); border-color: var(--line); }
+
+.hg-suggest {
+  list-style: none;
+  margin: var(--s5) 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.hg-chip {
+  appearance: none;
+  cursor: pointer;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: none;
+  padding: 7px var(--s3);
+  color: var(--fg-dim);
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: color 200ms var(--ease), border-color 200ms var(--ease);
+}
+
+.hg-chip:hover { color: var(--fg); border-color: var(--line); }
+.hg-chip b { font-weight: 500; color: var(--accent); }
+
+/* --------------------------------------------------------------------------
+   loading
+   ----------------------------------------------------------------------- */
+
+.hg-label {
+  margin: 0 0 var(--s3);
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  font-weight: 500;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.hg-title {
+  margin: 0 0 var(--s7);
+  font-size: var(--t-title);
+  font-weight: 500;
+  font-stretch: 108%;
+  line-height: 1.25;
+  letter-spacing: -0.018em;
+  text-wrap: balance;
+}
+
+.hg-stages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s4);
+  max-width: 27rem;
+}
+
+.hg-stage-row {
+  display: grid;
+  grid-template-columns: 9px 1fr auto;
+  align-items: center;
+  gap: var(--s4);
+  font-size: var(--t-body);
+  color: var(--fg-faint);
+  transition: color 400ms var(--ease);
+}
+
+.hg-stage-row::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border: 1px solid currentColor;
+  border-radius: 1px;
+  transform: rotate(45deg);
+  transition: background 300ms var(--ease), box-shadow 300ms var(--ease);
+}
+
+.hg-stage-row[data-state="active"] {
+  color: var(--accent);
+}
+
+.hg-stage-row[data-state="active"]::before {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+  animation: hg-pulse 1.5s var(--ease) infinite;
+}
+
+.hg-stage-row[data-state="done"] { color: var(--fg-dim); }
+.hg-stage-row[data-state="done"]::before { background: var(--fg-faint); }
+
+.hg-stage-note {
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes hg-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px var(--accent-soft); }
+  50%      { box-shadow: 0 0 0 9px rgba(255, 157, 74, 0.04); }
+}
+
+/* --------------------------------------------------------------------------
+   error
+   ----------------------------------------------------------------------- */
+
+.hg-panel--error .hg-label { color: var(--danger); }
+
+.hg-body {
+  margin: 0 0 var(--s7);
+  max-width: 32em;
+  font-size: var(--t-lead);
+  line-height: 1.55;
+  color: var(--fg-dim);
+  text-wrap: pretty;
+}
+
+.hg-detail {
+  display: block;
+  margin-top: var(--s4);
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  line-height: 1.6;
+  color: var(--fg-faint);
+  word-break: break-word;
+}
+
+.hg-detail:empty { display: none; }
+
+.hg-btn {
+  appearance: none;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: none;
+  padding: 11px var(--s5);
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: border-color 200ms var(--ease), background 200ms var(--ease), color 200ms var(--ease);
+}
+
+.hg-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* --------------------------------------------------------------------------
+   HUD
+   ----------------------------------------------------------------------- */
+
+.hg-bottom {
+  display: grid;
+  place-items: end center;
+  padding: 0 var(--s5) var(--s5);
+  padding-bottom: max(var(--s5), env(safe-area-inset-bottom));
+}
+
+.hg-speed {
+  display: none;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  /* delayed past the drone arrival: the readout lands when you do */
+  animation: hg-rise 760ms var(--ease) 1750ms both;
+}
+
+.hg[data-view="game"] .hg-speed { display: flex; }
+
+.hg-speed-value {
+  font-size: clamp(2.25rem, 5.6vw, 3.25rem);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+
+.hg-speed-unit {
+  font-size: var(--t-micro);
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+.hg-share {
+  pointer-events: auto;
+  appearance: none;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 2px;
+  background: rgba(11, 14, 19, 0.55);
+  backdrop-filter: blur(8px);
+  padding: 7px var(--s3);
+  color: var(--fg-dim);
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: color 200ms var(--ease), border-color 200ms var(--ease), background 200ms var(--ease);
+}
+
+.hg-share:hover { color: var(--fg); border-color: var(--fg-faint); background: rgba(11, 14, 19, 0.75); }
+
+.hg-share[data-copied="1"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* --------------------------------------------------------------------------
+   notice
+   ----------------------------------------------------------------------- */
+
+.hg-notice {
+  position: fixed;
+  left: var(--s5);
+  bottom: max(var(--s5), env(safe-area-inset-bottom));
+  z-index: 20;
+  max-width: min(30rem, calc(100vw - 2 * var(--s5)));
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  border-radius: 2px;
+  background: rgba(18, 24, 33, 0.92);
+  backdrop-filter: blur(10px);
+  color: var(--fg-dim);
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  line-height: 1.6;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 320ms var(--ease), transform 320ms var(--ease);
+}
+
+.hg-notice[data-on="1"] { opacity: 1; transform: none; }
+
+/* --------------------------------------------------------------------------
+   focus + motion
+   ----------------------------------------------------------------------- */
+
+:where(button, input, a):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   mobile
+   ----------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  :root { --s7: 36px; --s8: 48px; }
+
+  .hg-top { padding-left: var(--s4); padding-right: var(--s4); }
+  .hg-stage { padding: var(--s5) var(--s4); align-items: center; }
+  .hg-bottom { padding-left: var(--s4); padding-right: var(--s4); }
+
+  .hg-display { font-stretch: 108%; letter-spacing: -0.025em; }
+  .hg-lead { margin-bottom: var(--s6); }
+  .hg-place-name { max-width: 40vw; }
+  .hg-notice { left: var(--s4); right: var(--s4); max-width: none; }
+  .hg-suggest { gap: 6px; }
+
+  /* keep speed clear of thumb controls */
+  .hg-bottom { place-items: end center; }
+  .hg-speed-value { font-size: 2rem; }
+}
+
+@media (max-height: 560px) and (orientation: landscape) {
+  .hg-lead { display: none; }
+  .hg-display { font-size: 2.25rem; margin-bottom: var(--s4); }
+  .hg-title { margin-bottom: var(--s5); }
+  .hg-stages { gap: var(--s3); }
+}
