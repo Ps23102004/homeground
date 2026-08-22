@@ -248,8 +248,11 @@ out body geom qt;`;
   const elements = json.elements ?? [];
   if (elements.length === 0)
     throw new UpstreamError(
-      "Overpass returned no elements for this bbox — the area may be unmapped, or Overpass truncated the query",
-      502,
+      "Overpass returned no elements for this bbox — nothing is mapped here",
+      // 422, not 502: Overpass answered correctly, the box is simply empty.
+      // The client turns this into "Nothing is built here." rather than
+      // blaming a data source that is working fine.
+      422,
     );
 
   const buildings: Building[] = [];

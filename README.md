@@ -3,6 +3,8 @@
 Type your home address. Ten seconds later you're riding a longboard down your own
 street, rebuilt from open map data as a playable level you can share with a link.
 
+![Filbert Street, San Francisco, rebuilt and ridden](docs/filbert-st-san-francisco.png)
+
 ```
 npm install
 npm run dev          # web on :5173, api on :8787
@@ -68,8 +70,9 @@ citizen of them:
 - **All upstream calls are globally serialized** — one in flight at a time, process
   wide — and back off on 429/5xx.
 - **Everything is cached to disk forever** under `.cache/`, and the cache key *is*
-  the tile origin, so neighbouring addresses share one tile. Cold ≈ 13 s (11
-  sequential elevation calls at OpenTopoData's 1 req/s cap); warm ≈ 4 ms.
+  the tile origin, so neighbouring addresses share one tile. Cold is 15-30 s
+  depending on how much Overpass has to return (11 sequential elevation calls at
+  OpenTopoData's 1 req/s cap, plus the Overpass query itself); warm ≈ 40 ms.
 - OpenTopoData's public API caps at 100 locations per request; a 33×33 grid is 11
   requests. `HG_GRID` tunes it.
 

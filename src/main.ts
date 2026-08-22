@@ -218,6 +218,7 @@ function reportError(err: unknown): void {
   const detail = err instanceof Error ? err.message : String(err);
   console.error("[homeground]", err);
   if (status === 404) ui.showError("not-found", detail);
+  else if (status === 422) ui.showError("no-buildings", detail);
   else if (status === 502 || status === 504 || status === 429) ui.showError("upstream", detail);
   else if (status === undefined) ui.showError("upstream", `${detail} — is the API running?`);
   else ui.showError("unknown", detail);
