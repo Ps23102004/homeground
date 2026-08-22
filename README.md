@@ -3,7 +3,9 @@
 Type your home address. Ten seconds later you're riding a longboard down your own
 street, rebuilt from open map data as a playable level you can share with a link.
 
-![Filbert Street, San Francisco, rebuilt and ridden](docs/filbert-st-san-francisco.png)
+![Filbert Street, Russian Hill, San Francisco, rebuilt from open map data and ridden at 53 km/h](docs/filbert-street-riding.jpg)
+
+<sub>Filbert Street, San Francisco. Every footprint, roofline and road centerline above is real OpenStreetMap data; the hill is real NED 10 m elevation. Nothing here is modelled by hand.</sub>
 
 ```
 npm install
@@ -32,6 +34,10 @@ open http://localhost:5173
    with speed.
 
 Coordinates and the wire format are defined once in [`src/types.ts`](src/types.ts).
+
+![Baldwin Street, Dunedin, New Zealand, ridden down the ridge with the city below](docs/baldwin-street-dunedin.jpg)
+
+<sub>Baldwin Street, Dunedin, New Zealand, the steepest residential street in the world. Outside the United States there is no NED coverage, so the tile falls back to SRTM 90 m automatically. Same URL, same ten seconds.</sub>
 
 ## The "find the run" heuristic — read this before believing anything
 
@@ -137,6 +143,10 @@ tuned against a screenshot rather than a principle:
   highlights toward the sun. Real tilt-shift photographs of cities are more
   saturated and more contrasty than the scene in front of the lens; that excess
   is what makes a real street look like a painted model.
+
+![The loading screen: a live contour field drawn with marching squares over the elevation data](docs/loading-contours.png)
+
+<sub>The loading screen is not a spinner. It is a live contour field, marching squares over a scalar elevation field, with every fifth line drawn as an amber index contour, which is the real cartographic convention. As the tile loads, a radial cone blends in and the contour interval tightens, so the page visibly converges into a hill while the world is being built.</sub>
 
 ### The arrival
 
