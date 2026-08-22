@@ -8,7 +8,7 @@ street, rebuilt from open map data as a playable level you can share with a link
 <sub>Filbert Street, San Francisco. Every footprint, roofline and road centerline above is real OpenStreetMap data; the hill is real NED 10 m elevation. Nothing here is modelled by hand.</sub>
 
 ```
-npm install
+npm ci               # or npm install
 npm run dev          # web on :5173, api on :8787
 open http://localhost:5173
 ```
@@ -28,7 +28,7 @@ open http://localhost:5173
 4. **Build** — the browser extrudes the footprints with procedural facades driven by
    the OSM tags, lays road ribbons with curbs and markings along the real
    centerlines, and builds a terrain mesh from the elevation grid. The entire
-   neighbourhood is **10 draw calls**.
+   neighbourhood is **11 draw calls**.
 5. **Ride** — a capsule-on-heightfield integrator at a fixed 120 Hz, colliding
    against the real building footprints, with a chase camera that widens its FOV
    with speed.
@@ -38,6 +38,12 @@ Coordinates and the wire format are defined once in [`src/types.ts`](src/types.t
 ![Baldwin Street, Dunedin, New Zealand, ridden down the ridge with the city below](docs/baldwin-street-dunedin.jpg)
 
 <sub>Baldwin Street, Dunedin, New Zealand, the steepest residential street in the world. Outside the United States there is no NED coverage, so the tile falls back to SRTM 90 m automatically. Same URL, same ten seconds.</sub>
+
+Measured on the San Francisco tile above (Apple silicon, Chrome, WebGPU backend,
+1920×1080): 6 529 buildings, 956 215 triangles, 11 draw calls, and a steady
+**120 fps** — 8.3 ms mean frame interval, 10.3 ms at the 95th percentile, which is
+the display's refresh rate rather than the renderer's ceiling. Tile build takes
+~380–900 ms of that once the JSON has arrived.
 
 ## The "find the run" heuristic — read this before believing anything
 
@@ -76,14 +82,20 @@ citizen of them:
 - **All upstream calls are globally serialized** — one in flight at a time, process
   wide — and back off on 429/5xx.
 - **Everything is cached to disk forever** under `.cache/`, and the cache key *is*
-  the tile origin, so neighbouring addresses share one tile. Cold is 15-30 s
-  depending on how much Overpass has to return (11 sequential elevation calls at
-  OpenTopoData's 1 req/s cap, plus the Overpass query itself); warm ≈ 40 ms.
+  the tile origin, so neighbouring addresses share one tile. Cold is 14–31 s end
+  to end (11 sequential elevation calls at OpenTopoData's 1 req/s cap, plus
+  however long Overpass takes that minute — measured 13.8 s for San Francisco,
+  31.0 s for Indianapolis); warm is 13–85 ms server-side.
 - OpenTopoData's public API caps at 100 locations per request; a 33×33 grid is 11
   requests. `HG_GRID` tunes it.
 
 Data: buildings and roads © OpenStreetMap contributors (ODbL). Elevation via
 opentopodata.org (USGS 3DEP `ned10m`, NASA SRTM `srtm90m`).
+
+ODbL requires that credit to reach the person looking at the derived work, not
+just the person reading this file, so the app itself carries it too — a permanent
+line in the bottom-left of both the landing screen and the ride, linking to
+[openstreetmap.org/copyright](https://www.openstreetmap.org/copyright).
 
 ## Controls
 
@@ -157,6 +169,11 @@ with the tilt-shift band swept from a sliver to the riding width as it descends
 at the *top of a hill*, which in practice is a wide junction with the buildings
 set back — the single flattest frame in the tile, arrived at as a hard cut. The
 same spot from 98 m up is a neighbourhood. `prefers-reduced-motion` skips it.
+
+![Mid-arrival over Hyde and Filbert, the tilt-shift band still narrow](docs/russian-hill-arrival.jpg)
+
+<sub>Two thirds of the way down the arrival, from about 40 m. The narrow focus
+band is what makes a real city block read as a model of one.</sub>
 
 ## Known limits
 

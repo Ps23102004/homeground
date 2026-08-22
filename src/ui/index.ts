@@ -156,6 +156,8 @@ export function createUI(root: HTMLElement, opts: UIOptions): UI {
     </footer>
 
     <div class="hg-notice" role="status"></div>
+
+    <p class="hg-credit">Map data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL) &middot; elevation <a href="https://www.opentopodata.org/" target="_blank" rel="noopener">OpenTopoData</a> (USGS 3DEP / NASA SRTM)</p>
   `;
   root.appendChild(el);
 

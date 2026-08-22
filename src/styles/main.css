@@ -599,3 +599,27 @@ body { overflow: hidden; }
   .hg-title { margin-bottom: var(--s5); }
   .hg-stages { gap: var(--s3); }
 }
+
+/* ODbL requires the attribution to be visible in the app itself, not only in
+   the README. Kept out of the way but never hidden, in either view. */
+.hg-credit {
+  position: fixed;
+  left: var(--s5);
+  bottom: max(var(--s5), env(safe-area-inset-bottom));
+  margin: 0;
+  max-width: min(46ch, 60vw);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.45;
+  letter-spacing: 0.04em;
+  color: var(--fg-dim);
+  pointer-events: auto;
+}
+
+.hg-credit a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.hg-credit a:hover { color: var(--fg); }
+
+.hg[data-view="game"] .hg-credit {
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.85), 0 0 3px rgba(0, 0, 0, 0.7);
+}
