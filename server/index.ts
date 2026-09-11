@@ -11,6 +11,7 @@
 // via opentopodata.org.
 
 import { gzipSync } from "node:zlib";
+import path from "node:path";
 import cors from "cors";
 import express, { type Request, type Response } from "express";
 import type { GeoResponse, RunCandidate, TilePayload } from "./types.js";
@@ -170,6 +171,15 @@ app.get("/api/tile", async (req: Request, res: Response) => {
   } catch (err) {
     return fail(res, err);
   }
+});
+
+// ---- production: serve the built frontend from the same origin so the app
+// deploys as one unit (vite build -> dist/, served here alongside /api/*).
+// API routes are registered above, so only non-API misses reach the fallback.
+const distDir = path.resolve(process.cwd(), "dist");
+app.use(express.static(distDir));
+app.use((_req: Request, res: Response) => {
+  res.sendFile(path.join(distDir, "index.html"));
 });
 
 app.listen(PORT, () =>
